@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="hi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no"><title>SULTAN Moto Racer - FIXED</title>
+<style>body{margin:0;padding:0;background:#111;color:#fff;font-family:Arial;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}
+#game-container{position:relative;width:95vw;max-width:800px;aspect-ratio:16/9;box-shadow:0 0 20px rgba(0,255,200,.5);border-radius:8px;overflow:hidden}
+canvas{width:100%;height:100%;display:block;background:#87CEEB}
+#ui{position:absolute;top:10px;left:10px;display:flex;gap:12px;font-weight:bold;text-shadow:2px 2px 4px #000}
+#game-over{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;background:rgba(0,0,0,.85);padding:20px 40px;border-radius:10px;border:2px solid #ff0055}
+button{padding:10px 20px;background:#00ffcc;border:none;border-radius:5px;font-weight:bold;cursor:pointer}
+.touch{position:absolute;bottom:12px;width:100%;display:flex;justify-content:space-between;padding:0 12px;z-index:5}
+.tbtn{width:64px;height:64px;background:rgba(0,255,200,.25);border:2px solid #00ffcc;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;backdrop-filter:blur(4px)}
+</style></head><body>
+<h2>🏍️ SULTAN Moto Highway - FIXED</h2>
+<div id="game-container">
+<canvas id="gameCanvas" width="800" height="450"></canvas>
+<div id="ui"><div>Score: <span id="score">0</span></div><div>Coins: <span id="coins" style="color:#ffd700">0</span></div></div>
+<div class="touch"><div class="tbtn" id="leftBtn">◄</div><div class="tbtn" id="rightBtn">►</div></div>
+<div id="game-over"><h1>Game Over!</h1><p>Score: <span id="final-score">0</span></p><button onclick="restartGame()">Play Again</button></div>
+</div>
+<div style="margin-top:8px;color:#aaa;font-size:13px">कंट्रोल्स: A/D या ◄ ► - Drift ke liye hold karo</div>
+<script>
+const canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+const scoreEl=document.getElementById('score'),coinsEl=document.getElementById('coins'),finalScoreEl=document.getElementById('final-score'),over=document.getElementById('game-over');
+let running=true,score=0,coins=0,speed=5,roadOffset=0,drift=0,smokes=[];
+const player={x:400,y:370,w:30,h:60,spd:7,targetX:400};
+const keys={left:false,right:false};
+addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')keys.left=true;if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')keys.right=true;});
+addEventListener('keyup',e=>{if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')keys.left=false;if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')keys.right=false;});
+function bind(id,k){let el=document.getElementById(id);el.addEventListener('touchstart',e=>{e.preventDefault();keys[k]=true;},{passive:false});el.addEventListener('touchend',e=>{e.preventDefault();keys[k]=false;},{passive:false});el.addEventListener('mousedown',()=>keys[k]=true);el.addEventListener('mouseup',()=>keys[k]=false);}
+bind('leftBtn','left');bind('rightBtn','right');
+let traffic=[],coinArr=[],trees=[];
+for(let i=0;i<12;i++)trees.push({x:Math.random()<0.5?Math.random()*0.22:0.78+Math.random()*0.22,y:Math.random()*450});
+function createTraffic(){if(Math.random()<0.03){let rl=canvas.width*0.25,rr=canvas.width*0.75-40;traffic.push({x:rl+Math.random()*(rr-rl),y:-100,w:35,h:65,color:['#ff3333','#3388ff','#ffff33','#ff00ff'][Math.floor(Math.random()*4)]})}}
+function createCoin(){if(Math.random()<0.02){let rl=canvas.width*0.28,rr=canvas.width*0.72;coinArr.push({x:rl+Math.random()*(rr-rl),y:-40})}
+function drawRoad(){
+ctx.fillStyle='#87CEEB';ctx.fillRect(0,0,canvas.width,canvas.height*0.4);
+ctx.fillStyle='#2d8a4e';ctx.fillRect(0,canvas.height*0.4,canvas.width,canvas.height*0.6);
+trees.forEach(t=>{t.y+=speed*0.6;if(t.y>450){t.y=-20;t.x=Math.random()<0.5?Math.random()*0.22:0.78+Math.random()*0.22;}ctx.fillStyle='#1b5e20';ctx.fillRect(t.x*canvas.width, t.y, 8, 24);ctx.fillStyle='#2e7d32';ctx.beginPath();ctx.arc(t.x*canvas.width+4,t.y-6,14,0,Math.PI*2);ctx.fill();});
+ctx.beginPath();ctx.moveTo(canvas.width*0.35,canvas.height*0.4);ctx.lineTo(canvas.width*0.65,canvas.height*0.4);ctx.lineTo(canvas.width*0.85,canvas.height);ctx.lineTo(canvas.width*0.15,canvas.height);ctx.closePath();ctx.fillStyle='#333';ctx.fill();
+ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.setLineDash([20,20]);ctx.lineDashOffset=-roadOffset;ctx.beginPath();ctx.moveTo(canvas.width*0.5,canvas.height*0.4);ctx.lineTo(canvas.width*0.5,canvas.height);ctx.stroke();ctx.setLineDash([]);roadOffset+=speed;
+}
+function drawPlayer(){
+if(keys.left)player.targetX-=player.spd;if(keys.right)player.targetX+=player.spd;
+player.targetX=Math.max(canvas.width*0.18,Math.min(canvas.width*0.82,player.targetX));
+player.x+=(player.targetX-player.x)*0.15;
+let drifting=Math.abs(player.targetX-player.x)>3&&(keys.left||keys.right);
+if(drifting){drift++;if(drift%3==0){smokes.push({x:player.x-10,y:player.y+50,vx:-1-Math.random(),l:16});smokes.push({x:player.x+10,y:player.y+50,vx:1+Math.random(),l:16});}}else drift=0;
+smokes.forEach(s=>{s.y+=speed*0.5;s.x+=s.vx;s.vx*=0.95;s.l--;ctx.fillStyle=`rgba(180,180,180,${s.l/16*0.5})`;ctx.beginPath();ctx.arc(s.x,s.y,4,0,Math.PI*2);ctx.fill();});smokes=smokes.filter(s=>s.l>0);
+ctx.fillStyle='#00ffcc';ctx.fillRect(player.x-player.w/2,player.y,player.w,player.h);
+ctx.fillStyle='#000';ctx.fillRect(player.x-player.w/4,player.y+player.h-10,player.w/2,12);
+ctx.fillStyle='#ffaa00';ctx.beginPath();ctx.arc(player.x,player.y+15,8,0,Math.PI*2);ctx.fill();
+ctx.fillStyle='#111';ctx.font='bold 8px Arial';ctx.textAlign='center';ctx.fillText('SULTAN 53',player.x,player.y+30);
+}
+function updateTraffic(){createTraffic();createCoin();
+for(let i=traffic.length-1;i>=0;i--){let c=traffic[i];c.y+=speed*0.8;ctx.fillStyle=c.color;ctx.fillRect(c.x,c.y,c.w,c.h);
+if(player.x-player.w/2<c.x+c.w&&player.x+player.w/2>c.x&&player.y<c.y+c.h&&player.y+player.h>c.y){gameOver();}
+if(c.y>canvas.height){traffic.splice(i,1);score+=10;scoreEl.innerText=score;if(score%50==0)speed+=0.5;}}
+for(let i=coinArr.length-1;i>=0;i--){let cn=coinArr[i];cn.y+=speed*0.8;ctx.fillStyle='#ff8f00';ctx.beginPath();ctx.arc(cn.x,cn.y,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ffd700';ctx.beginPath();ctx.arc(cn.x,cn.y,6,0,Math.PI*2);ctx.fill();
+if(Math.abs(player.x-cn.x)<28&&Math.abs(player.y-cn.y)<40){coinArr.splice(i,1);coins++;coinsEl.innerText=coins;score+=20;}else if(cn.y>500)coinArr.splice(i,1);}
+}
+function loop(){if(!running)return;ctx.clearRect(0,0,canvas.width,canvas.height);drawRoad();drawPlayer();updateTraffic();requestAnimationFrame(loop);}
+function gameOver(){running=false;finalScoreEl.innerText=score;over.style.display='block';}
+function restartGame(){score=0;coins=0;speed=5;traffic=[];coinArr=[];smokes=[];player.x=400;player.targetX=400;scoreEl.innerText=0;coinsEl.innerText=0;over.style.display='none';running=true;loop();}
+loop();
+</script></body></html>
